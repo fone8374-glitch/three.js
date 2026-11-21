@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { DecalGeometry } from 'three/addons/geometries/DecalGeometry.js';
 import { tweenXYZ, tween, ease } from './tween.js';
 import {
-	shirtTexture, vestTexture, trouserTexture, ninjaClothTexture, wrapTexture,
+	shirtTexture, trouserTexture, ninjaClothTexture, wrapTexture,
 	TeacherFace, NinjaMask, decalTexture, rulerTexture, bookTexture
 } from './textures.js';
 import { wind } from './world.js';
@@ -469,7 +469,6 @@ export class Teacher extends Fighter {
 
 		const skin = this.mat( { color: 0xc98f6b, roughness: 0.65 } );
 		const shirt = this.mat( { map: shirtTexture(), roughness: 0.85 } );
-		const vest = this.mat( { map: vestTexture(), roughness: 0.95, side: THREE.DoubleSide } );
 		const trousers = this.mat( { map: trouserTexture(), roughness: 0.9 } );
 		const shoe = this.mat( { color: 0x3a2416, roughness: 0.4 } );
 		const belt = this.mat( { color: 0x231a14, roughness: 0.5 } );
@@ -504,12 +503,8 @@ export class Teacher extends Fighter {
 			this.mesh( new THREE.SphereGeometry( 1, 14, 10 ), shirt, 'chest', [ s * 0.15, 0.36, - 0.02 ], [ 0.13, 0.07, 0.1 ] );
 
 		} );
-		// vest: open-front shell
-		const vestGeo = new THREE.CylinderGeometry( 0.33, 0.25, 0.5, 28, 1, true, 0.42, Math.PI * 2 - 0.84 );
-		this.mesh( vestGeo, vest, 'chest', [ 0, 0.12, - 0.005 ], [ 1, 1, 0.72 ] );
-		this.mesh( new THREE.CylinderGeometry( 0.26, 0.24, 0.18, 28, 1, true, 0.5, Math.PI * 2 - 1.0 ), vest, 'spine', [ 0, 0.12, 0 ], [ 1, 1, 0.85 ] );
-		// vest buttons on the left flap
-		for ( let i = 0; i < 3; i ++ ) this.mesh( new THREE.SphereGeometry( 0.012, 6, 6 ), gold, 'chest', [ 0.11, 0.18 - i * 0.12, 0.2 ] );
+		// shirt buttons down the placket
+		for ( let i = 0; i < 4; i ++ ) this.mesh( new THREE.SphereGeometry( 0.011, 6, 6 ), shirt, 'chest', [ - 0.035, 0.3 - i * 0.1, 0.2 - i * 0.004 ] );
 		// collar
 		[ - 1, 1 ].forEach( s => this.mesh( new THREE.BoxGeometry( 0.09, 0.05, 0.02 ), shirt, 'chest', [ s * 0.05, 0.39, 0.12 ], null, [ - 0.3, 0, s * 0.6 ] ) );
 		// loosened tie, knot pulled down and askew
