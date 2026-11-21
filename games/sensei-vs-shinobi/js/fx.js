@@ -124,6 +124,23 @@ class Particles {
 }
 
 const C = ( hex ) => new THREE.Color( hex );
+
+// Photosensitivity guard (WCAG 2.3.1): bright flashes are limited to under 3 per second.
+// Calls inside one short window count as the same flash event (an impact fires several at once).
+export const flashGate = {
+	reduced: matchMedia( '(prefers-reduced-motion: reduce)' ).matches,
+	last: - Infinity,
+	allow() {
+
+		const now = performance.now() / 1000;
+		const gap = now - this.last;
+		if ( gap < 0.04 ) return true;
+		if ( gap < 0.36 ) return false;
+		this.last = now;
+		return true;
+
+	},
+};
 const rv = ( s = 1 ) => new THREE.Vector3( ( Math.random() - 0.5 ) * 2 * s, ( Math.random() - 0.5 ) * 2 * s, ( Math.random() - 0.5 ) * 2 * s );
 
 export class FX {
@@ -155,6 +172,8 @@ export class FX {
 
 	flash( pos, size = 1.4, color = 0xffffff ) {
 
+		if ( ! flashGate.allow() ) return;
+		if ( flashGate.reduced ) size *= 0.5;
 		this.add.emit( { pos, life: 0.12, size, sizeEnd: size * 1.4, color: C( color ), alpha: 0.75 } );
 		this.add.emit( { pos, life: 0.22, size: size * 0.5, sizeEnd: size * 1.8, color: C( 0xffa040 ), alpha: 0.45 } );
 
@@ -335,6 +354,14 @@ export class FX {
 
 	}
 
+	// Drop every running effect (used when a fight is abandoned).
+	clearItems() {
+
+		this.items.forEach( it => it.dispose() );
+		this.items.length = 0;
+
+	}
+
 	// Translucent afterimage of a fighter.
 	ghost( fighter, color = 0x7fc8ff, life = 0.5 ) {
 
@@ -478,6 +505,7 @@ export function callout( text, screenPos, { color = '#fff7e0', size = 1, rotate 
 
 export function screenFlash( color = '#fff', dur = 180 ) {
 
+	if ( flashGate.reduced || ! flashGate.allow() ) return;
 	const el = document.getElementById( 'flash' );
 	el.style.transition = 'none';
 	el.style.background = color;

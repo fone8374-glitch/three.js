@@ -6,6 +6,7 @@ import {
 	TeacherFace, NinjaMask, decalTexture, rulerTexture, bookTexture
 } from './textures.js';
 import { wind } from './world.js';
+import { flashGate } from './fx.js';
 
 export const JOINTS = [ 'hips', 'spine', 'chest', 'neck', 'head', 'shL', 'elL', 'haL', 'shR', 'elR', 'haR', 'thL', 'knL', 'ftL', 'thR', 'knR', 'ftR' ];
 
@@ -319,6 +320,8 @@ class Fighter {
 
 	flash( color = 0xffffff, dur = 0.25 ) {
 
+		// short hit flashes go through the photosensitivity gate; long glows (power-ups) do not flash
+		if ( dur < 0.5 && ( flashGate.reduced || ! flashGate.allow() ) ) return Promise.resolve();
 		const c = new THREE.Color( color ).multiplyScalar( 0.38 );
 		this.materials.forEach( m => {
 
@@ -779,6 +782,8 @@ export class Ninja extends Fighter {
 			w.obj.scale.setScalar( 1 );
 
 		}
+
+		this.weapons.nunchaku.obj.userData.hinge.rotation.set( 0, 0, 0 );
 
 	}
 

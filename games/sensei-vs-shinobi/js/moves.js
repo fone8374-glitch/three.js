@@ -632,7 +632,7 @@ export async function ninjaFinale( G ) {
 	if ( weapon ) await N.grab( weapon, 'haR', 0.1 );
 	G.cam.focus( V( T.x, 1.3, 0 ), 5.0, 0.3 );
 	speedLines( true, 1600 );
-	const cuts = [ 1, - 1, 1, - 1, 1, - 1 ];
+	const cuts = [ 1, - 1, 1, - 1 ];
 	for ( let i = 0; i < cuts.length; i ++ ) {
 
 		const side = cuts[ i ];
@@ -648,7 +648,7 @@ export async function ninjaFinale( G ) {
 		T.flash( 0xffffff, 0.08 );
 		T.pose( i % 2 ? 'hitHigh' : 'hitBody', 0.05 );
 		G.cam.shake( 0.12 );
-		await wait( 0.09 );
+		await wait( 0.27 );
 
 	}
 

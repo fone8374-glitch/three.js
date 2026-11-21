@@ -5,10 +5,10 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 import { initLang, t, getLang, onLang } from './i18n.js';
-import { update as tick, clock, wait, ease, tweenXYZ } from './tween.js';
+import { update as tick, clock, wait, ease, tweenXYZ, halt } from './tween.js';
 import { World, wind } from './world.js';
 import { Teacher, Ninja, WEAPON_ORDER } from './fighters.js';
-import { FX, hideInk } from './fx.js';
+import { FX, hideInk, speedLines } from './fx.js';
 import { initAudio, sfx, startMusic, stopMusic, setMusicIntensity, setMuted, isMuted, announce, setWind, hasVoice } from './audio.js';
 import { initSetup, state as setupState, normalize } from './setup.js';
 import { pickNinjaAttack, pickTeacherAttack, teacherFinisher, ninjaFinale, resetPositions, T_HOME, N_HOME } from './moves.js';
@@ -162,9 +162,9 @@ const hud = {
 	setHP( who, hp ) {
 
 		const bar = $( who === 'teacher' ? 'bar-t' : 'bar-n' );
-		const pct = ( hp / 4 ) * 100 + '%';
-		bar.querySelector( '.bar-fill' ).style.width = pct;
-		bar.querySelector( '.bar-trail' ).style.width = pct;
+		const s = `scaleX(${ hp / 4 })`;
+		bar.querySelector( '.bar-fill' ).style.transform = s;
+		bar.querySelector( '.bar-trail' ).style.transform = s;
 		bar.classList.toggle( 'low', hp === 1 );
 		sfx.hpDrain();
 		drawPortraits();
@@ -194,7 +194,7 @@ const hud = {
 			b.querySelectorAll( '.bar-fill, .bar-trail' ).forEach( e => {
 
 				e.style.transition = 'none';
-				e.style.width = '100%';
+				e.style.transform = 'scaleX(1)';
 				void e.offsetWidth;
 				e.style.transition = '';
 
@@ -254,8 +254,12 @@ const G = { teacher, ninja, fx, world, cam, hud, camera, project };
 // ------------------------------------------------------------------ questions
 
 let game = null;
+let abortQuestion = null;
+// Questions continue across rounds, so a long sheet is worked through instead of
+// replaying the first few. The cursor resets when the question set changes.
+let cursor = 0, cursorKey = '';
 
-function askQuestion( q, index ) {
+function askQuestion( q, index, total ) {
 
 	return new Promise( resolve => {
 
@@ -264,7 +268,7 @@ function askQuestion( q, index ) {
 		const typed = $( 'q-typed' );
 		const fb = $( 'q-feedback' );
 		const timerEl = $( 'timer' );
-		$( 'q-index' ).textContent = t( 'qLabel', index );
+		$( 'q-index' ).textContent = t( 'qLabel', index, total );
 		$( 'q-text' ).textContent = q.q;
 		fb.textContent = '';
 		fb.className = 'q-feedback';
@@ -280,6 +284,7 @@ function askQuestion( q, index ) {
 
 			if ( done ) return;
 			done = true;
+			abortQuestion = null;
 			clearInterval( timer );
 			timerEl.classList.remove( 'urgent' );
 			document.removeEventListener( 'keydown', onKey );
@@ -348,7 +353,7 @@ function askQuestion( q, index ) {
 			typed.onsubmit = e => {
 
 				e.preventDefault();
-				if ( ! inp.value.trim() ) return;
+				if ( ! inp.value.trim() || clock.paused ) return;
 				finish( normalize( inp.value ) === normalize( q.answer ), inp.value );
 
 			};
@@ -357,7 +362,7 @@ function askQuestion( q, index ) {
 
 		const onKey = e => {
 
-			if ( ! q.options.length ) return;
+			if ( ! q.options.length || clock.paused ) return;
 			const n = Number( e.key );
 			if ( n >= 1 && n <= q.options.length ) finish( n - 1 === q.answer, n - 1 );
 
@@ -369,6 +374,7 @@ function askQuestion( q, index ) {
 		timerEl.textContent = left > 0 ? left : '∞';
 		const timer = left > 0 ? setInterval( () => {
 
+			if ( clock.paused ) return;
 			left --;
 			timerEl.textContent = Math.max( 0, left );
 			if ( left <= 5 ) {
@@ -381,6 +387,16 @@ function askQuestion( q, index ) {
 			if ( left <= 0 ) finish( false, null, true );
 
 		}, 1000 ) : null;
+
+		abortQuestion = () => {
+
+			done = true;
+			clearInterval( timer );
+			document.removeEventListener( 'keydown', onKey );
+			timerEl.classList.remove( 'urgent' );
+			card.hidden = true;
+
+		};
 
 	} );
 
@@ -445,30 +461,43 @@ async function startGame( qs ) {
 	cam.viewShiftGoal = 0;
 	startMusic();
 	setMusicIntensity( 0.7 );
-	game = { qs, i: 0, asked: 0, correct: 0, missed: [] };
+	const key = JSON.stringify( qs );
+	if ( key !== cursorKey ) {
+
+		cursor = 0;
+		cursorKey = key;
+
+	}
+
+	const g = game = { qs, asked: 0, correct: 0, missed: [], aborted: false };
 
 	await intro();
+	if ( g.aborted ) return;
 
 	while ( teacher.hp > 0 && ninja.hp > 0 ) {
 
-		const q = game.qs[ game.i % game.qs.length ];
-		game.i ++;
-		game.asked ++;
+		const qi = cursor % qs.length;
+		cursor ++;
+		const q = qs[ qi ];
+		g.asked ++;
 		cam.auto( 0.8 );
-		const res = await askQuestion( q, game.asked );
+		const res = await askQuestion( q, qi + 1, qs.length );
+		if ( g.aborted ) return;
 		if ( res.correct ) {
 
-			game.correct ++;
+			g.correct ++;
 			if ( teacher.hp === 1 ) await ninjaFinale( G );
 			else await pickNinjaAttack( ninja )( G );
 
 		} else {
 
-			game.missed.push( { q: q.q, answer: res.answerText, given: res.given } );
+			g.missed.push( { q: q.q, answer: res.answerText, given: res.given } );
 			await pickTeacherAttack()( G );
 			if ( ninja.hp === 0 ) await teacherFinisher( G );
 
 		}
+
+		if ( g.aborted ) return;
 
 		setMusicIntensity( 0.7 + ( 4 - Math.min( teacher.hp, ninja.hp ) ) * 0.1 );
 		if ( teacher.hp > 0 && ninja.hp > 0 ) {
@@ -480,9 +509,66 @@ async function startGame( qs ) {
 
 	}
 
+	if ( g.aborted ) return;
+	g.over = true;
 	showResults();
 
 }
+
+// ------------------------------------------------------------------ pause / quit
+
+function canPause() {
+
+	return game && ! game.over && ! game.aborted && ! $( 'hud' ).hidden;
+
+}
+
+function setPaused( on ) {
+
+	if ( on && ! canPause() ) return;
+	clock.paused = on;
+	$( 'pause' ).hidden = ! on;
+	$( 'hud' ).inert = on;
+	if ( window.speechSynthesis ) on ? speechSynthesis.pause() : speechSynthesis.resume();
+	setMusicIntensity( on ? 0.1 : 0.7 );
+	if ( on ) $( 'resume-btn' ).focus();
+	else document.querySelector( '#question-card:not([hidden]) .opt, #question-card:not([hidden]) input' )?.focus( { preventScroll: true } );
+
+}
+
+// Abandon the running fight: freeze its choreography for good and clear the stage.
+function abortGame() {
+
+	if ( ! game ) return;
+	game.aborted = true;
+	halt();
+	abortQuestion?.();
+	abortQuestion = null;
+	fx.clearItems();
+	clock.paused = false;
+	$( 'pause' ).hidden = true;
+	$( 'hud' ).inert = false;
+	$( 'announcer' ).className = 'announcer';
+	speedLines( false );
+	if ( window.speechSynthesis ) speechSynthesis.cancel();
+
+}
+
+$( 'pause-btn' ).addEventListener( 'click', () => setPaused( true ) );
+$( 'resume-btn' ).addEventListener( 'click', () => setPaused( false ) );
+$( 'quit-btn' ).addEventListener( 'click', () => {
+
+	abortGame();
+	backToSetup();
+
+} );
+addEventListener( 'keydown', e => {
+
+	if ( e.key !== 'Escape' ) return;
+	if ( clock.paused ) setPaused( false );
+	else if ( canPause() ) setPaused( true );
+
+} );
 
 function showResults() {
 

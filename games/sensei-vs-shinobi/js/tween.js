@@ -1,6 +1,6 @@
 // Game clock with slow-motion + hit-stop, promise-based waits and tweens.
 
-export const clock = { time: 0, scale: 1, hitstop: 0, real: 0 };
+export const clock = { time: 0, scale: 1, hitstop: 0, real: 0, paused: false };
 
 const tweens = new Map(); // key -> tween
 let anon = 0;
@@ -24,6 +24,7 @@ export const ease = {
 export function update( realDt ) {
 
 	clock.real += realDt;
+	if ( clock.paused ) return 0;
 	let dt = realDt;
 	if ( clock.hitstop > 0 ) {
 
@@ -118,6 +119,15 @@ export function tweenNum( obj, prop, to, dur, easing = ease.inOut ) {
 		obj[ prop ] = from + ( to - from ) * k;
 
 	}, easing, key[ prop ] );
+
+}
+
+// Abandon every pending tween and wait without resolving them, so any running
+// choreography stops dead instead of finishing behind the next screen.
+export function halt() {
+
+	tweens.clear();
+	waits.length = 0;
 
 }
 

@@ -154,6 +154,48 @@ function load() {
 
 }
 
+// ---------------------------------------------------------------- undo for destructive edits
+
+let undoSnap = null, undoTimer = null;
+
+function snapshot() {
+
+	undoSnap = structuredClone( state.questions );
+
+}
+
+function offerUndo( message ) {
+
+	const bar = $( 'undo-bar' );
+	bar.hidden = false;
+	// set the text after unhiding so the status region announces it
+	requestAnimationFrame( () => bar.querySelector( '.undo-text' ).textContent = message );
+	clearTimeout( undoTimer );
+	undoTimer = setTimeout( hideUndo, 15000 );
+
+}
+
+function hideUndo() {
+
+	$( 'undo-bar' ).hidden = true;
+	$( 'undo-bar' ).querySelector( '.undo-text' ).textContent = '';
+	undoSnap = null;
+
+}
+
+function undo() {
+
+	if ( ! undoSnap ) return;
+	state.questions = undoSnap;
+	hideUndo();
+	changed();
+	renderQuestions();
+	$( 'import-msg' ).classList.remove( 'error' );
+	$( 'import-msg' ).textContent = t( 'restored' );
+	$( 'add-q-btn' ).focus();
+
+}
+
 // ---------------------------------------------------------------- question editor
 
 function renderQuestions() {
@@ -234,6 +276,7 @@ function questionItem( q, qi ) {
 			inp.dir = 'auto';
 			inp.value = q.options[ i ] || '';
 			inp.placeholder = t( 'optPh', L[ i ] );
+			inp.setAttribute( 'aria-label', `${ t( 'qLabel', qi + 1 ) }, ${ t( 'optPh', L[ i ] ) }` );
 			inp.addEventListener( 'input', () => {
 
 				q.options[ i ] = inp.value;
@@ -287,6 +330,7 @@ function questionItem( q, qi ) {
 		inp.dir = 'auto';
 		inp.value = q.answer || '';
 		inp.placeholder = t( 'answerPh' );
+		inp.setAttribute( 'aria-label', `${ t( 'qLabel', qi + 1 ) }, ${ t( 'answerPh' ) }` );
 		inp.addEventListener( 'input', () => {
 
 			q.answer = inp.value;
@@ -304,9 +348,11 @@ function questionItem( q, qi ) {
 	rm.textContent = t( 'remove' );
 	rm.addEventListener( 'click', () => {
 
+		snapshot();
 		state.questions.splice( qi, 1 );
 		changed();
 		renderQuestions();
+		offerUndo( t( 'removed', qi + 1 ) );
 
 	} );
 	row.appendChild( rm );
@@ -613,18 +659,26 @@ export function initSetup( { onStart, photoChanged } ) {
 	} );
 	$( 'sample-btn' ).addEventListener( 'click', () => {
 
+		const hadOwn = state.questions.some( q => q.q && q.q.trim() );
+		if ( hadOwn ) snapshot();
 		state.questions = structuredClone( SAMPLE_QUESTIONS[ getLang() ] );
 		changed();
 		renderQuestions();
+		if ( hadOwn ) offerUndo( t( 'replacedSamples' ) );
 
 	} );
 	$( 'clear-btn' ).addEventListener( 'click', () => {
 
+		const n = state.questions.length;
+		if ( ! n ) return;
+		snapshot();
 		state.questions = [];
 		changed();
 		renderQuestions();
+		offerUndo( t( 'cleared', n ) );
 
 	} );
+	$( 'undo-btn' ).addEventListener( 'click', undo );
 	$( 'lang-btn' ).addEventListener( 'click', () => setLang( getLang() === 'ar' ? 'en' : 'ar' ) );
 	onLang( () => {
 

@@ -100,6 +100,10 @@
 						<button type="button" class="btn-link" id="sample-btn" data-i18n="loadSamples">Use sample questions</button>
 						<button type="button" class="btn-link" id="clear-btn" data-i18n="clearAll">Clear all</button>
 					</div>
+					<div id="undo-bar" class="undo-bar" hidden>
+						<span class="undo-text" role="status"></span>
+						<button type="button" class="btn btn-chalk" id="undo-btn" data-i18n="undo">Undo</button>
+					</div>
 					<p class="hint" data-i18n="excelHelp"></p>
 					<p id="import-msg" class="import-msg" role="status" aria-live="polite"></p>
 					<ol id="q-list" class="q-list"></ol>
@@ -139,15 +143,20 @@
 			<p id="q-text" class="q-text" dir="auto"></p>
 			<div id="q-options" class="options"></div>
 			<form id="q-typed" class="typed" hidden>
-				<input id="q-typed-input" dir="auto" type="text" autocomplete="off" data-i18n-ph="typeHere">
+				<input id="q-typed-input" dir="auto" type="text" autocomplete="off" data-i18n-ph="typeHere" data-i18n-label="typeHere">
 				<button type="submit" class="btn-answer" data-i18n="submit">Answer</button>
 			</form>
 			<p id="q-feedback" class="q-feedback"></p>
 		</section>
 
-		<button type="button" id="sound-btn" class="sound-btn" aria-pressed="true" data-i18n-label="sound">
+		<div class="hud-controls">
+			<button type="button" id="pause-btn" class="round-btn" data-i18n-label="pause" aria-keyshortcuts="Escape">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>
+			</button>
+		<button type="button" id="sound-btn" class="round-btn sound-btn" aria-pressed="true" data-i18n-label="sound">
 			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="mute" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
 		</button>
+		</div>
 	</div>
 
 	<div id="announcer" class="announcer" aria-live="assertive"></div>
@@ -155,6 +164,18 @@
 	<div id="fx-layer" class="fx-layer" aria-hidden="true"></div>
 	<div id="speedlines" class="speedlines" aria-hidden="true"></div>
 	<div id="flash" class="flash" aria-hidden="true"></div>
+
+	<!-- ============ PAUSE ============ -->
+	<section id="pause" class="results" hidden role="dialog" aria-modal="true" aria-labelledby="pause-title">
+		<div class="board board-small">
+			<h2 id="pause-title" class="res-title" data-i18n="paused">Paused</h2>
+			<p class="res-sub" data-i18n="pausedSub"></p>
+			<div class="res-actions">
+				<button type="button" id="resume-btn" class="btn-start" data-i18n="resume">Resume</button>
+				<button type="button" id="quit-btn" class="btn btn-chalk" data-i18n="editSetup">Edit questions</button>
+			</div>
+		</div>
+	</section>
 
 	<!-- ============ RESULTS ============ -->
 	<section id="results" class="results" hidden aria-labelledby="res-title">
