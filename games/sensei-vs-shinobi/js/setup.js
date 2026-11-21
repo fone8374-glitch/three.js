@@ -434,17 +434,52 @@ function downloadTemplate() {
 		const wb = window.XLSX.utils.book_new();
 		if ( ar ) wb.Workbook = { Views: [ { RTL: true } ] };
 		window.XLSX.utils.book_append_sheet( wb, ws, ar ? 'الأسئلة' : 'Questions' );
-		window.XLSX.writeFile( wb, name + '.xlsx' );
+		saveFile( name + '.xlsx', window.XLSX.write( wb, { type: 'array', bookType: 'xlsx' } ) );
 
 	} else {
 
 		const csv = '﻿' + rows.map( r => r.map( c => `"${ String( c ).replace( /"/g, '""' ) }"` ).join( ',' ) ).join( '\n' );
-		const a = document.createElement( 'a' );
-		a.href = URL.createObjectURL( new Blob( [ csv ], { type: 'text/csv' } ) );
-		a.download = name + '.csv';
-		a.click();
+		saveFile( name + '.csv', csv );
 
 	}
+
+}
+
+// Inside a claude.ai artifact, page-started downloads are blocked, so files go through
+// the viewer's `downloads` capability (they confirm the save). Elsewhere, a normal download.
+async function saveFile( filename, data ) {
+
+	const msg = $( 'import-msg' );
+	const fail = () => {
+
+		msg.classList.add( 'error' );
+		msg.textContent = t( 'downloadFail' );
+
+	};
+
+	if ( window.claude?.use ) {
+
+		const downloads = await window.claude.use( 'downloads' );
+		if ( ! downloads ) return fail();
+		try {
+
+			await downloads.save( { filename, data } );
+
+		} catch ( e ) {
+
+			if ( e?.code !== 'declined' ) fail();
+
+		}
+
+		return;
+
+	}
+
+	const a = document.createElement( 'a' );
+	a.href = URL.createObjectURL( new Blob( [ data ] ) );
+	a.download = filename;
+	a.click();
+	setTimeout( () => URL.revokeObjectURL( a.href ), 1000 );
 
 }
 
