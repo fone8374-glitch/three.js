@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>Sensei vs Shinobi</title>
+	<meta name="description" content="A 3D quiz fighting game: students answer the teacher's questions to power a ninja against the teacher, under Mount Fuji in autumn.">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Lalezar&family=Readex+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&text=%E5%AE%8C%E5%85%A8%E5%8B%9D%E5%88%A9%E7%BD%B0%E6%96%AC%E5%85%88%E7%94%9F%E5%BF%8D%E8%80%85%E5%AD%A6%E6%AD%A6&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="css/style.css">
+	<script src="vendor/xlsx.full.min.js" defer></script>
+	<script type="importmap">
+	{
+		"imports": {
+			"three": "../../build/three.module.js",
+			"three/addons/": "../../examples/jsm/"
+		}
+	}
+	</script>
+</head>
+<body>
+	<div id="stage" aria-hidden="true"></div>
+
+	<div id="loading" class="loading"><span data-i18n="loading">Preparing the arena…</span></div>
+
+	<!-- ============ SETUP: the teacher's chalkboard ============ -->
+	<main id="setup" class="setup">
+		<div class="board">
+			<header class="board-head">
+				<h1 class="title" data-i18n="title">Sensei vs Shinobi</h1>
+				<button id="lang-btn" class="lang-toggle" type="button" data-i18n="langToggle">العربية</button>
+				<p class="tagline" data-i18n="tagline"></p>
+			</header>
+
+			<div class="board-body">
+				<section class="block" aria-labelledby="h-fighters">
+					<h2 id="h-fighters" data-i18n="fighters">Fighters</h2>
+					<div class="fighter-grid">
+						<div class="photo-picker">
+							<div class="photo-frame" id="photo-frame">
+								<canvas id="photo-canvas" width="320" height="320" aria-label="Teacher photo preview"></canvas>
+								<svg class="photo-empty" viewBox="0 0 100 100" aria-hidden="true">
+									<circle cx="50" cy="38" r="20" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="4 4"/>
+									<path d="M16 92c4-20 18-30 34-30s30 10 34 30" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="4 4"/>
+								</svg>
+							</div>
+							<div class="photo-controls">
+								<label class="btn btn-chalk">
+									<input type="file" id="photo-input" accept="image/*" class="visually-hidden">
+									<span data-i18n="photoChoose">Choose photo</span>
+								</label>
+								<label class="zoom" id="zoom-wrap" hidden>
+									<span data-i18n="photoZoom">Zoom</span>
+									<input type="range" id="photo-zoom" min="1" max="3" step="0.01" value="1.2">
+								</label>
+								<button type="button" class="btn-link" id="photo-remove" hidden data-i18n="photoRemove">Remove photo</button>
+							</div>
+							<p class="hint" id="photo-hint" data-i18n="photoHint"></p>
+						</div>
+
+						<div class="fields">
+							<label class="field">
+								<span data-i18n="teacherName">Teacher name</span>
+								<input id="teacher-name" dir="auto" type="text" maxlength="24" autocomplete="off" data-i18n-ph="teacherNamePh">
+							</label>
+							<label class="field">
+								<span data-i18n="studentName">Student name</span>
+								<input id="student-name" dir="auto" type="text" maxlength="24" autocomplete="off" data-i18n-ph="studentNamePh">
+							</label>
+							<label class="field">
+								<span data-i18n="timePer">Seconds per question</span>
+								<select id="time-per">
+									<option value="0" data-i18n="noTimer">No timer</option>
+									<option value="10">10</option>
+									<option value="15">15</option>
+									<option value="20" selected>20</option>
+									<option value="30">30</option>
+									<option value="45">45</option>
+									<option value="60">60</option>
+								</select>
+							</label>
+						</div>
+					</div>
+				</section>
+
+				<section class="block" aria-labelledby="h-questions">
+					<div class="q-head">
+						<h2 id="h-questions" data-i18n="questions">Questions</h2>
+						<span id="q-count" class="q-count"></span>
+					</div>
+					<div class="q-actions">
+						<label class="btn btn-chalk btn-strong">
+							<input type="file" id="excel-input" accept=".xlsx,.xls,.csv,.ods" class="visually-hidden">
+							<span data-i18n="uploadExcel">Upload Excel sheet</span>
+						</label>
+						<button type="button" class="btn btn-chalk" id="template-btn" data-i18n="downloadTemplate">Download template</button>
+						<button type="button" class="btn btn-chalk" id="add-q-btn" data-i18n="addQuestion">Add question</button>
+						<button type="button" class="btn-link" id="sample-btn" data-i18n="loadSamples">Use sample questions</button>
+						<button type="button" class="btn-link" id="clear-btn" data-i18n="clearAll">Clear all</button>
+					</div>
+					<p class="hint" data-i18n="excelHelp"></p>
+					<p id="import-msg" class="import-msg" role="status" aria-live="polite"></p>
+					<ol id="q-list" class="q-list"></ol>
+				</section>
+			</div>
+
+			<footer class="board-foot">
+				<p id="start-msg" class="start-msg" role="alert"></p>
+				<button type="button" id="start-btn" class="btn-start" data-i18n="startFight">Start the fight</button>
+			</footer>
+		</div>
+	</main>
+
+	<!-- ============ FIGHT HUD ============ -->
+	<div id="hud" class="hud" hidden>
+		<div class="bars" dir="ltr">
+			<div class="fbar fbar-teacher">
+				<canvas class="portrait" id="portrait-t" width="96" height="96"></canvas>
+				<div class="fbar-main">
+					<div class="fname" id="name-t" dir="auto"></div>
+					<div class="bar" id="bar-t"><div class="bar-trail"></div><div class="bar-fill"></div><div class="bar-ticks"></div></div>
+				</div>
+			</div>
+			<div class="timer" id="timer" aria-live="off">∞</div>
+			<div class="fbar fbar-ninja">
+				<canvas class="portrait" id="portrait-n" width="96" height="96"></canvas>
+				<div class="fbar-main">
+					<div class="fname" id="name-n" dir="auto"></div>
+					<div class="bar" id="bar-n"><div class="bar-trail"></div><div class="bar-fill"></div><div class="bar-ticks"></div></div>
+					<ul class="weapons" id="weapons"></ul>
+				</div>
+			</div>
+		</div>
+
+		<section id="question-card" class="question-card" hidden aria-live="polite">
+			<div class="q-meta"><span id="q-index"></span><span class="keys-hint" data-i18n="keysHint"></span></div>
+			<p id="q-text" class="q-text" dir="auto"></p>
+			<div id="q-options" class="options"></div>
+			<form id="q-typed" class="typed" hidden>
+				<input id="q-typed-input" dir="auto" type="text" autocomplete="off" data-i18n-ph="typeHere">
+				<button type="submit" class="btn-answer" data-i18n="submit">Answer</button>
+			</form>
+			<p id="q-feedback" class="q-feedback"></p>
+		</section>
+
+		<button type="button" id="sound-btn" class="sound-btn" aria-pressed="true" data-i18n-label="sound">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="mute" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+		</button>
+	</div>
+
+	<div id="announcer" class="announcer" aria-live="assertive"></div>
+	<div id="ink" class="ink" aria-hidden="true"><div class="ink-blot"></div><div class="ink-kanji"></div><div class="ink-sub"></div></div>
+	<div id="fx-layer" class="fx-layer" aria-hidden="true"></div>
+	<div id="speedlines" class="speedlines" aria-hidden="true"></div>
+	<div id="flash" class="flash" aria-hidden="true"></div>
+
+	<!-- ============ RESULTS ============ -->
+	<section id="results" class="results" hidden aria-labelledby="res-title">
+		<div class="board board-small">
+			<h2 id="res-title" class="res-title"></h2>
+			<p id="res-sub" class="res-sub"></p>
+			<p id="res-score" class="res-score"></p>
+			<h3 id="res-review-h" data-i18n="review">Questions to review</h3>
+			<ul id="res-list" class="res-list"></ul>
+			<div class="res-actions">
+				<button type="button" id="again-btn" class="btn-start" data-i18n="playAgain">Fight again</button>
+				<button type="button" id="edit-btn" class="btn btn-chalk" data-i18n="editSetup">Edit questions</button>
+			</div>
+		</div>
+	</section>
+
+	<script type="module" src="js/main.js"></script>
+</body>
+</html>
